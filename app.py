@@ -1,46 +1,63 @@
 from flask import Flask, jsonify
-from datetime import datetime
+import requests
 import os
+from datetime import datetime
+import pytz # Recomendado para manejar zonas horarias
 
 app = Flask(__name__)
 
-@app.route('/agenda')
-def agenda():
-    # DATOS DE PRUEBA (Para que tu app de Android funcione mientras destrabas la API)
-    # Estos partidos se verán hoy en tu app sin importar el bloqueo de API-Football
-    partidos_mock = [
-        {
-            "home": "Fiorentina",
-            "away": "Pisa",
-            "league": "Serie A",
-            "time": "14:30",
-            "priority": False
-        },
-        {
-            "home": "Manchester Utd",
-            "away": "Leicester",
-            "league": "Premier League",
-            "time": "11:00",
-            "priority": False
-        },
-        {
-            "home": "San Lorenzo",
-            "away": "Velez",
-            "league": "Liga Profesional",
-            "time": "19:15",
-            "priority": True
-        },
-        {
-            "home": "Barcelona",
-            "away": "Getafe",
-            "league": "La Liga",
-            "time": "17:00",
-            "priority": False
-        }
-    ]
-    
-    return jsonify(partidos_mock)
+API_KEY = os.environ.get("API_KEY")
+LEAGUES = [128, 131, 13, 11, 2, 39, 140, 135, 78, 61]
+SAN_LORENZO_ID = 515
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+@app.route("/")
+def home():
+    return {"status": "online", "message": "Agenda API funcionando"}
+
+@app.route("/agenda")
+def agenda():
+    # Forzamos la zona horaria de Argentina sin importar dónde esté el servidor
+    tz = pytz.timezone('America/Argentina/Buenos_Aires')
+    today = datetime.now(tz).strftime("%Y-%m-%d")
+
+    url = "https://v3.football.api-sports.io/fixtures"
+    headers = {"x-apisports-key": API_KEY}
+    params = {
+        "date": today,
+        "timezone": "America/Argentina/Buenos_Aires"
+    }
+
+    try:
+        response = requests.get(url, headers=headers, params=params, timeout=10)
+        response.raise_for_status() # Lanza error si la API responde mal
+        data = response.json()
+
+        partidos = []
+        for fixture in data.get("response", []):
+            if fixture["league"]["id"] in LEAGUES:
+                home_team = fixture["teams"]["home"]
+                away_team = fixture["teams"]["away"]
+                
+                # Check de San Lorenzo (Prioridad)
+                is_priority = home_team["id"] == SAN_LORENZO_ID or away_team["id"] == SAN_LORENZO_ID
+
+                partidos.append({
+                    "priority": is_priority,
+                    "league": fixture["league"]["name"],
+                    "time": fixture["fixture"]["date"][11:16], # HH:mm
+                    "home": home_team["name"],
+                    "away": away_team["name"],
+                    "status": fixture["fixture"]["status"]["short"] # Agregado: para saber si ya empezó o terminó
+                })
+
+        # Ordenar: Primero San Lorenzo, luego por horario
+        partidos.sort(key=lambda x: (not x["priority"], x["time"]))
+        return jsonify(partidos)
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == "__main__":
+    # Render usa la variable de entorno PORT, si no existe usa 10000
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
