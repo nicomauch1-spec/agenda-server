@@ -10,6 +10,9 @@ API_KEY = os.environ.get("API_KEY")
 LEAGUES = [128,131,13,11,2,39,140,135,78,61]
 SAN_LORENZO_ID = 515
 
+# Esta es la "memoria" para no gastar los 100 usos diarios de la API
+memoria = {"fecha": None, "datos": None}
+
 @app.route("/")
 def home():
     return "Agenda API funcionando"
@@ -20,11 +23,15 @@ def agenda():
     tz_arg = timezone(timedelta(hours=-3))
     today = datetime.now(tz_arg).strftime("%Y-%m-%d")
 
+    # 1. Revisamos la memoria: Si ya buscamos los partidos de hoy, no gastamos la API
+    if memoria["fecha"] == today and memoria["datos"] is not None:
+        return jsonify(memoria["datos"])
+
+    # 2. Si es el primer usuario del día, hacemos la petición a la API
     url = "https://v3.football.api-sports.io/fixtures"
     headers = {
         "x-apisports-key": API_KEY
     }
-
     params = {
         "date": today,
         "timezone": "America/Argentina/Buenos_Aires"
@@ -52,6 +59,10 @@ def agenda():
 
     # Ordena primero por prioridad (los de San Lorenzo) y luego por horario
     partidos.sort(key=lambda x: (not x["priority"], x["time"]))
+
+    # 3. Guardamos los datos en la memoria para el próximo usuario
+    memoria["fecha"] = today
+    memoria["datos"] = partidos
 
     return jsonify(partidos)
 
