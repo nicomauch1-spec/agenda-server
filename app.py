@@ -1,7 +1,7 @@
 from flask import Flask, jsonify
 import requests
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 app = Flask(__name__)
 
@@ -16,8 +16,9 @@ def home():
 
 @app.route("/agenda")
 def agenda():
-
-    today = datetime.now().strftime("%Y-%m-%d")
+    # Ajuste de zona horaria para Argentina (UTC-3)
+    tz_arg = timezone(timedelta(hours=-3))
+    today = datetime.now(tz_arg).strftime("%Y-%m-%d")
 
     url = "https://v3.football.api-sports.io/fixtures"
     headers = {
@@ -49,10 +50,13 @@ def agenda():
                 "away": fixture["teams"]["away"]["name"]
             })
 
+    # Ordena primero por prioridad (los de San Lorenzo) y luego por horario
     partidos.sort(key=lambda x: (not x["priority"], x["time"]))
 
     return jsonify(partidos)
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    # Render asigna dinámicamente el puerto, si falla usa el 10000 localmente
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
