@@ -60,15 +60,18 @@ def agenda():
     # Ordena primero por prioridad (los de San Lorenzo) y luego por horario
     partidos.sort(key=lambda x: (not x["priority"], x["time"]))
 
+    # --- MODO RADIOGRAFÍA ---
+    # Si la lista quedó vacía, devolvemos todo lo que mandó la API crudo para ver el error
+    if len(partidos) == 0:
+        return jsonify({
+            "error_debug": "La lista filtrada quedó vacía",
+            "fecha_buscada": today,
+            "respuesta_api_football": data
+        })
+    # ------------------------
+
     # 3. Guardamos los datos en la memoria para el próximo usuario
     memoria["fecha"] = today
     memoria["datos"] = partidos
 
     return jsonify(partidos)
-
-
-if __name__ == "__main__":
-    # Render asigna dinámicamente el puerto, si falla usa el 10000 localmente
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
-
