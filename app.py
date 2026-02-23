@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 API_KEY = os.environ.get("API_KEY")
 
-LEAGUES = [128,131,13,11,2,39,140,135,78,61]
+LEAGUES = [128,130,13,11,2,39,140,135,78,61]
 SAN_LORENZO_ID = 515
 
 # Esta es la "memoria" para no gastar los 100 usos diarios de la API
@@ -71,3 +71,4 @@ if __name__ == "__main__":
     # Render asigna dinámicamente el puerto, si falla usa el 10000 localmente
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
